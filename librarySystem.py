@@ -5,26 +5,40 @@ import sqlite3
 import cv2
 from pyzbar import pyzbar
 import datetime
+import qrcode
+import time
+
+
 
 class LibrarySystem:
     def __init__(self, root):
         self.root = root
         self.root.title("Library Management System")
-        self.root.geometry("800x600")
         
+        self.root.geometry("900x700")
+    
         self.create_main_page()
+        bg_image = Image.open("book.jpg").resize((900, 700))
+    
+    def bg_image_every_page(self):
+        bg_image = Image.open("book.jpg").resize((1000,1000) )
+        self.bg_photo = ImageTk.PhotoImage(bg_image)
+        bg_label = tk.Label(self.root, image=self.bg_photo)
+        bg_label.place(relwidth=1, relheight=1)
     
     def create_main_page(self):
         self.clear_window()
         
-        title_label = tk.Label(self.root, text="Library Management System", font=("Arial", 24))
+        self.bg_image_every_page()
+        title_label = tk.Label(self.root, text="Library Management System", font=("Arial", 24) ,fg="black", bg="white")
         title_label.pack(pady=50)
+        
+        
         
         # Admin Button
         admin_img = Image.open("admin_icon.png").resize((150, 150))
         self.admin_photo = ImageTk.PhotoImage(admin_img)
-        admin_btn = tk.Button(self.root, image=self.admin_photo, text="Admin", compound=tk.TOP,
-                             command=self.admin_interface)
+        admin_btn = tk.Button(self.root, image=self.admin_photo, text="Admin", compound=tk.TOP, command=self.  admin_interface)
         admin_btn.pack(side=tk.LEFT, padx=50, pady=20)
         
         # Library Button
@@ -34,8 +48,10 @@ class LibrarySystem:
                             command=self.library_interface)
         lib_btn.pack(side=tk.RIGHT, padx=50, pady=20)
     
+    
     def library_interface(self):
-        self.clear_window()
+        self.clear_window()       
+        self.bg_image_every_page()
         
         title_label = tk.Label(self.root, text="Library Operations", font=("Arial", 24))
         title_label.pack(pady=30)
@@ -43,8 +59,7 @@ class LibrarySystem:
         # Issue Button
         issue_img = Image.open("issue_icon.png").resize((100, 100))
         self.issue_photo = ImageTk.PhotoImage(issue_img)
-        issue_btn = tk.Button(self.root, image=self.issue_photo, text="Issue Book", compound=tk.TOP,
-                             command=self.issue_book)
+        issue_btn = tk.Button(self.root, image=self.issue_photo, text="Issue Book", compound=tk.TOP,  command=self.issue_book)
         issue_btn.pack(side=tk.LEFT, padx=30, pady=20)
         
         # Renew Button
@@ -65,16 +80,20 @@ class LibrarySystem:
         back_btn.pack(pady=20)
     
     def issue_book(self):
+        
         self.scan_qr_codes("issue")
     
     def renew_book(self):
+        
         self.scan_qr_codes("renew")
     
     def submit_book(self):
+        
         self.scan_qr_codes("submit")
     
     def scan_qr_codes(self, operation):
         # This function will handle scanning of both student and book QR codes
+        
         self.scan_window = tk.Toplevel(self.root)
         self.scan_window.title(f"Scan QR Codes - {operation.capitalize()}")
         self.scan_window.geometry("600x400")
@@ -83,6 +102,8 @@ class LibrarySystem:
         self.student_data = None
         self.book_data = None
         
+        # Set background image
+        self.bg_image_every_page()
         tk.Label(self.scan_window, text=f"Please scan Student ID and Book QR codes", font=("Arial", 16)).pack(pady=20)
         
         # Student ID Frame
@@ -113,16 +134,32 @@ class LibrarySystem:
         self.details_frame = tk.Frame(self.scan_window)
         self.details_frame.pack(pady=10)
         
-        back_btn = tk.Button(self.scan_window, text="Back", command=self.scan_window.destroy)
+        # back_btn = tk.Button(self.scan_window, text="Back", command=self.scan_window.destroy)
+        back_btn = tk.Button(self.scan_window, text="Back", command=self.library_interface)
         back_btn.pack(pady=10)
     
     def scan_code(self, code_type):
+        stratTime = time.time()
+        timeOut = 30
+        
         # Initialize the camera
         cap = cv2.VideoCapture(0)
-        
+        for i in range(3):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                print(f"Camera found at index {i}")
+                break
+        else:
+            print("No working camera found.")
+            return  
+         
         while True:
             ret, frame = cap.read()
             if not ret:
+                break
+            
+            if time.time() - stratTime > timeOut:
+                print("Timeout: No QR code detected in 30 seconds.")
                 break
                 
             # Find and decode QR codes
@@ -168,6 +205,8 @@ class LibrarySystem:
         cv2.destroyAllWindows()
     
     def get_student_details(self, student_id):
+        self.bg_image_every_page()
+        
         conn = sqlite3.connect('library.db')
         cursor = conn.cursor()
         
@@ -187,6 +226,7 @@ class LibrarySystem:
         return None
     
     def get_book_details(self, book_id):
+        self.bg_image_every_page()
         conn = sqlite3.connect('library.db')
         cursor = conn.cursor()
         
@@ -208,6 +248,7 @@ class LibrarySystem:
         return None
     
     def display_details(self):
+        self.bg_image_every_page()
         # Clear previous details
         for widget in self.details_frame.winfo_children():
             widget.destroy()
@@ -240,13 +281,14 @@ class LibrarySystem:
         self.scan_window.destroy()
     
     def process_issue(self):
+        
         if not self.book_data['available']:
             messagebox.showerror("Error", "Book is already issued to another student")
             return
         
         # Calculate due date (14 days from today)
         issue_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        due_date = (datetime.datetime.now() + datetime.timedelta(days=14)).strftime("%Y-%m-%d")
+        due_date = (datetime.datetime.now() + datetime.timedelta(days=10)).strftime("%Y-%m-%d")
         
         conn = sqlite3.connect('library.db')
         cursor = conn.cursor()
@@ -296,9 +338,9 @@ class LibrarySystem:
             conn.close()
             return
         
-        # Calculate new due date (14 days from current due date)
+        # Calculate new due date (10 days from current due date)
         current_due_date = datetime.datetime.strptime(self.book_data['due_date'], "%Y-%m-%d")
-        new_due_date = (current_due_date + datetime.timedelta(days=14)).strftime("%Y-%m-%d")
+        new_due_date = (current_due_date + datetime.timedelta(days=10)).strftime("%Y-%m-%d")
         
         try:
             # Update book due date
@@ -367,9 +409,12 @@ class LibrarySystem:
             conn.close()
     
     def admin_interface(self):
-        self.clear_window()
         
-        title_label = tk.Label(self.root, text="Admin Panel", font=("Arial", 24))
+        # Clear the window and set background image
+        self.clear_window()
+        self.bg_image_every_page()
+        
+        title_label = tk.Label(self.root, text="Admin Panel", font=("Arial", 24) , )
         title_label.pack(pady=30)
         
         # Dashboard Button
@@ -401,14 +446,17 @@ class LibrarySystem:
         back_btn.pack(pady=20)
 
     def admin_dashboard(self):
+        
+        self.bg_image_every_page()
         self.clear_window()
+        self.bg_image_every_page()
         
         title_label = tk.Label(self.root, text="Admin Dashboard", font=("Arial", 24))
         title_label.pack(pady=20)
         
         # Get statistics from database
         conn = sqlite3.connect('library.db')
-        cursor = conn.cursor()
+        cursor = conn.cursor()  
         
         # Total books
         cursor.execute("SELECT COUNT(*) FROM books")
@@ -496,6 +544,7 @@ class LibrarySystem:
     
     def add_books(self):
         self.clear_window()
+        self.bg_image_every_page()
         
         title_label = tk.Label(self.root, text="Add New Book", font=("Arial", 24))
         title_label.pack(pady=20)
@@ -543,14 +592,34 @@ class LibrarySystem:
         back_btn = tk.Button(btn_frame, text="Cancel", command=self.admin_interface)
         back_btn.pack(side=tk.LEFT, padx=10)
     
+    # Generate QR code for book
     def generate_book_qr(self):
         # Generate a unique book ID (you can customize this)
         book_id = "BK" + str(int(datetime.datetime.now().timestamp()))[-6:]
         self.book_id_entry.delete(0, tk.END)
         self.book_id_entry.insert(0, book_id)
         
+        # Generate QR code
+        try:
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(book_id)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+
+            # Save temporarily for display
+            book_path = f"bookQR/{book_id}.png"
+            img.save(book_path)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate QR code: {str(e)}")
+        
+        
         # In a real implementation, you would generate and save a QR code image
-        messagebox.showinfo("Info", f"Book ID generated: {book_id}\nQR code can be printed later.")
+        messagebox.showinfo("Info", f"Book ID generated: {book_id}\nQR code can be printed .")
     
     def submit_new_book(self):
         book_id = self.book_id_entry.get()
@@ -584,6 +653,7 @@ class LibrarySystem:
     
     def add_student(self):
         self.clear_window()
+        self.bg_image_every_page()
         
         title_label = tk.Label(self.root, text="Add New Student", font=("Arial", 24))
         title_label.pack(pady=20)
@@ -626,14 +696,33 @@ class LibrarySystem:
         back_btn = tk.Button(btn_frame, text="Cancel", command=self.admin_interface)
         back_btn.pack(side=tk.LEFT, padx=10)
     
+
     def generate_student_qr(self):
-        # Generate a unique student ID (you can customize this)
+    # Generate a unique student ID
         student_id = "ST" + str(int(datetime.datetime.now().timestamp()))[-6:]
         self.student_id_entry.delete(0, tk.END)
         self.student_id_entry.insert(0, student_id)
+    
+        # Generate QR code
+        try:
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(student_id)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+
+            # Save temporarily for display
+            student_path = f"studentQR/{student_id}.png"
+            img.save(student_path)
         
-        # In a real implementation, you would generate and save a QR code image
-        messagebox.showinfo("Info", f"Student ID generated: {student_id}\nQR code can be printed later.")
+        
+        
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate QR code: {str(e)}")
     
     def submit_new_student(self):
         student_id = self.student_id_entry.get()
@@ -666,8 +755,9 @@ class LibrarySystem:
     
     def manage_books(self):
         self.clear_window()
+        self.bg_image_every_page()
         
-        title_label = tk.Label(self.root, text="Manage Books", font=("Arial", 24))
+        title_label = tk.Label(self.root, text="Manage Books", font=("Arial", 24) )
         title_label.pack(pady=20)
         
         # Search frame
@@ -887,7 +977,9 @@ class LibrarySystem:
             conn.close()
     
     def manage_students(self):
+        
         self.clear_window()
+        self.bg_image_every_page()
         
         title_label = tk.Label(self.root, text="Manage Students", font=("Arial", 24))
         title_label.pack(pady=20)
@@ -1190,3 +1282,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = LibrarySystem(root)
     root.mainloop()
+    
